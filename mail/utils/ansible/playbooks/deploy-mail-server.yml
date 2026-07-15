@@ -177,7 +177,8 @@
       when:
         - not bootstrap_config.stat.exists
         - ansible_system == 'Linux'
-        - stalwart_cli_fallback_os_id
+        - stalwart_cli_fallback_os_id is defined
+        - stalwart_cli_fallback_os_id | length > 0
         - stalwart_cli_fallback_os_id != stalwart_cli_os_id
         - stalwart_cli_check.rc != 0
         - "'GLIBC_' in (stalwart_cli_check.stderr | default(''))"
