@@ -193,7 +193,7 @@
       when:
         - not bootstrap_config.stat.exists
         - fallback_download_result is defined
-        - fallback_download_result.rc == 0
+
 
     - name: Create fallback extraction directory
       file:
@@ -310,7 +310,6 @@
       when:
         - not bootstrap_config.stat.exists
         - apply_result is defined
-        - apply_result.rc != 0
         - "'This operation is only allowed bootstrap mode' not in (apply_result.stdout | default(''))"
         - "'This operation is only allowed bootstrap mode' not in (apply_result.stderr | default(''))"
 
