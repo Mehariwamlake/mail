@@ -123,11 +123,14 @@
       register: stalwart_cli_tempdir
       when: not bootstrap_config.stat.exists
 
+
     - name: Download Stalwart CLI release archive on remote host
-      get_url:
-        url: "{{ stalwart_cli_download_url }}"
-        dest: "{{ stalwart_cli_tempdir.path }}/{{ stalwart_cli_filename }}"
-        mode: "0644"
+      command: >
+        curl -L --fail
+        "{{ stalwart_cli_download_url }}"
+        -o "{{ stalwart_cli_tempdir.path }}/{{ stalwart_cli_filename }}"
+      register: download_result
+      changed_when: download_result.rc == 0
       when: not bootstrap_config.stat.exists
 
     - name: Extract Stalwart CLI archive on remote host
