@@ -172,11 +172,12 @@
       when: not bootstrap_config.stat.exists
 
     - name: Download fallback musl Stalwart CLI archive on glibc mismatch
-      get_url:
-        url: "{{ stalwart_cli_fallback_download_url }}"
-        dest: "{{ stalwart_cli_tempdir.path }}/{{ stalwart_cli_fallback_filename }}"
-        mode: "0644"
+      command: >
+        curl -L --fail
+        "{{ stalwart_cli_fallback_download_url }}"
+        -o "{{ stalwart_cli_tempdir.path }}/{{ stalwart_cli_fallback_filename }}"
       register: fallback_download_result
+      changed_when: fallback_download_result.rc == 0
       when:
         - not bootstrap_config.stat.exists
         - ansible_system == 'Linux'
