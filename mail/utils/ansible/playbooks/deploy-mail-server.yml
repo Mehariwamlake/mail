@@ -311,10 +311,8 @@
         - not bootstrap_config.stat.exists
         - apply_result is defined
         - apply_result.rc != 0
-        - "'This operation is only allowed bootstrap mode'"
-          not in (apply_result.stdout | default(''))
-        - "'This operation is only allowed bootstrap mode'"
-          not in (apply_result.stderr | default(''))
+        - "'This operation is only allowed bootstrap mode' not in (apply_result.stdout | default(''))"
+        - "'This operation is only allowed bootstrap mode' not in (apply_result.stderr | default(''))"
 
     - name: Restart the Stalwart
       command: docker compose restart stalwart
