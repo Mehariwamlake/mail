@@ -183,6 +183,9 @@
         - stalwart_cli_check.rc != 0
         - "'GLIBC_' in (stalwart_cli_check.stderr | default(''))"
 
+
+
+
     - name: Check if fallback archive exists
       stat:
         path: "{{ stalwart_cli_tempdir.path }}/{{ stalwart_cli_fallback_filename }}"
@@ -190,7 +193,8 @@
       when:
         - not bootstrap_config.stat.exists
         - fallback_download_result is defined
-        
+
+
     - name: Create fallback extraction directory
       file:
         path: "{{ stalwart_cli_tempdir.path }}/fallback"
@@ -198,8 +202,7 @@
         mode: "0755"
       when:
         - not bootstrap_config.stat.exists
-        - fallback_download_result is defined
-        - fallback_download_result is succeeded
+        - fallback_archive.stat.exists
 
     - name: Extract fallback musl Stalwart CLI archive
       unarchive:
@@ -219,8 +222,7 @@
       register: extracted_fallback_stalwart_cli
       when:
         - not bootstrap_config.stat.exists
-        - fallback_download_result is defined
-        - fallback_download_result is succeeded
+        - fallback_archive.stat.exists
 
     - name: Install fallback Stalwart CLI binary into deployment directory
       copy:
@@ -230,8 +232,7 @@
         remote_src: true
       when:
         - not bootstrap_config.stat.exists
-        - fallback_download_result is defined
-        - fallback_download_result is succeeded
+        - fallback_archive.stat.exists
         - extracted_fallback_stalwart_cli.matched | int > 0
 
     - name: Re-verify Stalwart CLI after fallback install
@@ -241,29 +242,40 @@
       failed_when: false
       when:
         - not bootstrap_config.stat.exists
-        - fallback_download_result is defined
-        - fallback_download_result is succeeded
+        - fallback_archive.stat.exists
 
     - name: Ensure Stalwart CLI is executable before bootstrap apply
       fail:
         msg: >-
           {{
             (
-              (stalwart_cli_check_after_fallback if (stalwart_cli_check_after_fallback is defined) else stalwart_cli_check)
-              .get('stderr')
+              stalwart_cli_check_after_fallback.stderr
+              if (stalwart_cli_check_after_fallback is defined)
+              else stalwart_cli_check.stderr
             )
-            or
-            (
-              (stalwart_cli_check_after_fallback if (stalwart_cli_check_after_fallback is defined) else stalwart_cli_check)
-              .get('stdout')
-            )
-            or 'Stalwart CLI could not be executed on target host.'
+            | default(
+                (
+                  stalwart_cli_check_after_fallback.stdout
+                  if (stalwart_cli_check_after_fallback is defined)
+                  else stalwart_cli_check.stdout
+                ),
+                true
+              )
+            | default('Stalwart CLI could not be executed on target host.', true)
           }}
       when:
-        - not bootstrap_config.stat.exists
-        - (
-            (stalwart_cli_check_after_fallback if (stalwart_cli_check_after_fallback is defined) else stalwart_cli_check)
-            .get('rc', 1)
+      - not bootstrap_config.stat.exists
+      - >
+          (
+            (
+              stalwart_cli_check_after_fallback | default({})
+            ).rc
+            | default(
+                (
+                  stalwart_cli_check | default({})
+                ).rc
+                | default(1)
+              )
           ) != 0
 
     - name: Remove temporary Stalwart CLI extraction directory
@@ -276,31 +288,29 @@
 
     - name: Apply bootstrap plan through `stalwart-cli`
       command: >
-        {{ stalwart_root }}/stalwart-cli apply --file {{ stalwart_root }}/bootstrap.ndjson --json
+        {{ stalwart_root }}/stalwart-cli apply
+        --file {{ stalwart_root }}/bootstrap.ndjson
+        --json
       environment:
-        STALWART_URL: "http://127.0.0.1:8087"
+        STALWART_URL: "http://127.0.0.1:8080"
         STALWART_USER: "{{ recovery_admin_user }}"
         STALWART_PASSWORD: "{{ recovery_admin_password }}"
       register: apply_result
-      changed_when: apply_result.rc == 0 and ('"created"' in apply_result.stdout or '"updated"' in apply_result.stdout)
-      failed_when: false
-      when: not bootstrap_config.stat.exists
 
-    - name: Fail deployment if bootstrap apply failed for reasons other than already-bootstrapped server
+    - name: Fail deployment if bootstrap apply failed
       fail:
-        msg: "{{ apply_result.get('stdout') or apply_result.get('stderr') or 'Bootstrap apply failed with no output.' }}"
+        msg: >-
+          {{
+            apply_result.stderr
+            | default(apply_result.stdout, true)
+            | default('Bootstrap apply failed with no output.', true)
+          }}
       when:
         - not bootstrap_config.stat.exists
         - apply_result is defined
-        - apply_result.get('rc', 1) != 0
-        - "'This operation is only allowed bootstrap mode' not in (apply_result.get('stdout', ''))"
-        - "'This operation is only allowed bootstrap mode' not in (apply_result.get('stderr', ''))"
-
-    - name: Restart the Stalwart
-      command: docker compose restart stalwart
-      args:
-        chdir: "{{ stalwart_root }}"
-      register: restart_stalwart
+        - apply_result.rc != 0
+        - "'This operation is only allowed bootstrap mode' not in (apply_result.stdout | default(''))"
+        - "'This operation is only allowed bootstrap mode' not in (apply_result.stderr | default(''))"
 
     - name: Ensure full stack is up
       command: docker compose up -d --remove-orphans
@@ -313,19 +323,14 @@
         host: 127.0.0.1
         port: 8080
         timeout: 180
-      register: wait_result_normal
-      failed_when: wait_result_normal is failed
 
-    - name: Check container health via `docker compose ps`
+    - name: Check container health via docker compose ps
       command: docker compose ps
       args:
         chdir: "{{ stalwart_root }}"
       register: ps_result
       ignore_errors: true
 
-    # -------------------------------------------------------------------------
-    # Debug Info
-    # -------------------------------------------------------------------------
     - name: Display container status
       debug:
         var: ps_result.stdout_lines
