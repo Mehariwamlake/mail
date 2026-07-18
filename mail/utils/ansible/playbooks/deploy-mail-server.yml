@@ -76,7 +76,7 @@
     - name: Wait for HTTP port to be ready
       wait_for:
         host: 127.0.0.1
-        port: 8087
+        port: 8080
         timeout: 180
       register: wait_result
       failed_when: wait_result is failed
@@ -311,7 +311,7 @@
     - name: Wait for HTTP port to be ready after normal restart
       wait_for:
         host: 127.0.0.1
-        port: 8087
+        port: 8080
         timeout: 180
       register: wait_result_normal
       failed_when: wait_result_normal is failed
