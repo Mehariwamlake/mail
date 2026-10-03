@@ -278,7 +278,7 @@
       command: >
         {{ stalwart_root }}/stalwart-cli apply --file {{ stalwart_root }}/bootstrap.ndjson --json
       environment:
-        STALWART_URL: "http://127.0.0.1:8087"
+        STALWART_URL: "http://127.0.0.1:8080"
         STALWART_USER: "{{ recovery_admin_user }}"
         STALWART_PASSWORD: "{{ recovery_admin_password }}"
       register: apply_result
